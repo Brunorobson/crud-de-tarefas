@@ -1,5 +1,6 @@
-// src/database.js
 import fs from 'node:fs/promises'
+import { createReadStream } from 'node:fs'
+import { parse } from 'csv-parse'
 
 const csvFilePath = new URL('../data.csv', import.meta.url)
 
@@ -25,7 +26,6 @@ export class Database {
   #csvEscape(value) {
     if (value === null || value === undefined) return ''
     const s = String(value)
-    // se tiver vírgula/aspas/quebra de linha, envolve em aspas e escapa aspas duplas
     if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`
     return s
   }
@@ -45,5 +45,26 @@ export class Database {
 
     await fs.appendFile(csvFilePath, line, 'utf-8')
     return task
+  }
+
+  async getAllTasks() {
+    await this.#init()
+  
+    const stream = createReadStream(csvFilePath)
+  
+    const parser = stream.pipe(
+      parse({
+        columns: true,          // usa a primeira linha como header
+        trim: true,
+        skip_empty_lines: true,
+      })
+    )
+  
+    const tasks = []
+    for await (const record of parser) {
+      tasks.push(record)
+    }
+  
+    return tasks
   }
 }

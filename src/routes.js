@@ -25,7 +25,18 @@ export const routes = [
         res.writeHead(201)
 
         return res.end(JSON.stringify(task))
+    
     }
+},
+{
+    method:'GET',
+    path: '/all-tasks',
+    handler: async(req, res) => {
+        const tasks = await db.getAllTasks()
+
+        res.writeHead(200, { 'Content-Type': 'application/json' })
+        return res.end(JSON.stringify(tasks))
     }
+}
 
 ]
