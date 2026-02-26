@@ -1,21 +1,30 @@
+import { randomUUID } from "node:crypto"
+import { Database } from "./database.js"
+
+const db = new Database()
+
 export const routes = [
     {
         method: 'POST',
         path: '/tasks',
-        handler: (req, res) => {
-            const { id, title, description, completed_at, created_at, updated_at } = req.body
-
-            const user = {
-                id: 1,
-                title: 'tarefa',
-                description: 'descrição da tarefa',
+        handler: async(req, res) => {
+            const { title, description} = req.body
+            
+            const date = new Date().toISOString()
+            const task = {
+                id: randomUUID(),
+                title,
+                description,
                 completed_at : null,
-                created_at: new Date(),
-                updated_at: new Date()
+                created_at: date,
+                updated_at: date
             }
-            console.log('Cadastro OK', user)
 
-        return res.writeHead(201).end(JSON.stringify(user))
+            await db.insertTask(task)
+
+        res.writeHead(201)
+
+        return res.end(JSON.stringify(task))
     }
     }
 
