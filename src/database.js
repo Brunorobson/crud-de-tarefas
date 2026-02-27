@@ -74,17 +74,23 @@ export class Database {
     return data
   }
 
-  async insert(table, data) {
-    if (table !== 'tasks') return data
+  async select(table, search) {
+    if (table !== 'tasks') return []
+  
+    let data = await this.#readAll()
+  
+    if (search && Object.keys(search).length > 0) {
+      data = data.filter((row) => {
+        return Object.entries(search).some(([key, value]) => {
 
-    await this.#ensureCsv()
-
-    const row = {}
-    for (const h of HEADERS) row[h] = data[h] ?? ''
-
-    const line = HEADERS.map((h) => this.#csvEscape(row[h])).join(',') + '\n'
-    await fs.appendFile(csvFilePath, line, 'utf-8')
-
+          if (!['title', 'description'].includes(key)) return false
+  
+          const cell = (row[key] ?? '').toString().toLowerCase()
+          return cell.includes(String(value).toLowerCase())
+        })
+      })
+    }
+  
     return data
   }
 

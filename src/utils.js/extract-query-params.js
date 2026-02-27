@@ -1,9 +1,11 @@
 export function ExtractQueryParams(query) {
-    return query.substr(1).split('&').reduce((queryParams, param) => {
-        const [] = param.split('=')
-
+    return query
+      .substring(1)
+      .split('&')
+      .reduce((queryParams, param) => {
+        const [key, value] = param.split('=')
+  
         queryParams[key] = value
-
         return queryParams
-    }, {})
-}
+      }, {})
+  }
