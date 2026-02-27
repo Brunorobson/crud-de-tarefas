@@ -4,23 +4,20 @@ import { parse } from 'csv-parse'
 
 const csvFilePath = new URL('../data.csv', import.meta.url)
 
+const HEADERS = ['id', 'title', 'description', 'completed_at', 'created_at', 'updated_at']
+
 export class Database {
-  #ready = false
+  constructor() {
+    this.#ensureCsv()
+  }
 
-  async #init() {
-    if (this.#ready) return
-
+  async #ensureCsv() {
     try {
       await fs.access(csvFilePath)
     } catch {
-      await fs.writeFile(
-        csvFilePath,
-        'id,title,description,completed_at,created_at,updated_at\n',
-        'utf-8'
-      )
+      const header = `${HEADERS.join(',')}\n`
+      await fs.writeFile(csvFilePath, header, 'utf-8')
     }
-
-    this.#ready = true
   }
 
   #csvEscape(value) {
@@ -30,41 +27,88 @@ export class Database {
     return s
   }
 
-  async insertTask(task) {
-    await this.#init()
+  async #readAll() {
+    await this.#ensureCsv()
 
-    const line =
-      [
-        this.#csvEscape(task.id),
-        this.#csvEscape(task.title),
-        this.#csvEscape(task.description),
-        this.#csvEscape(task.completed_at),
-        this.#csvEscape(task.created_at),
-        this.#csvEscape(task.updated_at),
-      ].join(',') + '\n'
-
-    await fs.appendFile(csvFilePath, line, 'utf-8')
-    return task
-  }
-
-  async getAllTasks() {
-    await this.#init()
-  
     const stream = createReadStream(csvFilePath)
-  
     const parser = stream.pipe(
       parse({
-        columns: true,          // usa a primeira linha como header
+        columns: true,
         trim: true,
         skip_empty_lines: true,
       })
     )
-  
-    const tasks = []
-    for await (const record of parser) {
-      tasks.push(record)
+
+    const rows = []
+    for await (const record of parser) rows.push(record)
+    return rows
+  }
+
+  async #writeAll(rows) {
+    await this.#ensureCsv()
+
+    const header = `${HEADERS.join(',')}\n`
+    const body = rows
+      .map((row) => HEADERS.map((h) => this.#csvEscape(row[h])).join(','))
+      .join('\n')
+
+    const content = header + (body ? body + '\n' : '')
+    await fs.writeFile(csvFilePath, content, 'utf-8')
+  }
+
+  async select(table, search) {
+    if (table !== 'tasks') return []
+
+    let data = await this.#readAll()
+
+    if (search && Object.keys(search).length > 0) {
+      data = data.filter((row) =>
+        Object.entries(search).some(([key, value]) => {
+          if (!HEADERS.includes(key)) return false
+          const cell = (row[key] ?? '').toString().toLowerCase()
+          return cell.includes(String(value).toLowerCase())
+        })
+      )
     }
-  
-    return tasks
+
+    return data
+  }
+
+  async insert(table, data) {
+    if (table !== 'tasks') return data
+
+    await this.#ensureCsv()
+
+    const row = {}
+    for (const h of HEADERS) row[h] = data[h] ?? ''
+
+    const line = HEADERS.map((h) => this.#csvEscape(row[h])).join(',') + '\n'
+    await fs.appendFile(csvFilePath, line, 'utf-8')
+
+    return data
+  }
+
+  async update(table, id, data) {
+    if (table !== 'tasks') return
+
+    const rows = await this.#readAll()
+    const idx = rows.findIndex((r) => r.id === id)
+
+    if (idx === -1) return
+
+    rows[idx] = { ...rows[idx], ...data, id }
+    await this.#writeAll(rows)
+  }
+
+  async delete(table, id) {
+    if (table !== 'tasks') return
+
+    const rows = await this.#readAll()
+    const idx = rows.findIndex((r) => r.id === id)
+
+    if (idx === -1) return
+
+    rows.splice(idx, 1)
+    await this.#writeAll(rows)
   }
 }

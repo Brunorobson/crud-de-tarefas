@@ -1,42 +1,42 @@
-import { randomUUID } from "node:crypto"
-import { Database } from "./database.js"
+import { randomUUID } from 'node:crypto'
+import { Database } from './database.js'
+import { buildRoutePath } from './utils.js/build-route-path.js'
 
-const db = new Database()
+const database = new Database()
 
 export const routes = [
     {
-        method: 'POST',
-        path: '/tasks',
-        handler: async(req, res) => {
-            const { title, description} = req.body
-            
-            const date = new Date().toISOString()
-            const task = {
-                id: randomUUID(),
-                title,
-                description,
-                completed_at : null,
-                created_at: date,
-                updated_at: date
-            }
-
-            await db.insertTask(task)
-
-        res.writeHead(201)
-
+        method: 'GET',
+        path: buildRoutePath('/tasks'),
+        handler: async (req, res) => {
+          const tasks = await database.select('tasks', req.query)
+      
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' })
+          return res.end(JSON.stringify(tasks))
+        }
+      },
+  {
+    method: 'POST',
+    path: buildRoutePath('/tasks'),
+    handler: async (req, res) => {
+        const { title, description } = req.body
+        const now = new Date().toISOString()
+      
+        const task = {
+          id: randomUUID(),
+          title,
+          description,
+          completed_at: '',
+          created_at: now,
+          updated_at: now,
+        }
+      
+        await database.insert('tasks', task)
+      
+        res.writeHead(201, { 'Content-Type': 'application/json; charset=utf-8' })
         return res.end(JSON.stringify(task))
-    
-    }
-},
-{
-    method:'GET',
-    path: '/all-tasks',
-    handler: async(req, res) => {
-        const tasks = await db.getAllTasks()
+      },
+  },
 
-        res.writeHead(200, { 'Content-Type': 'application/json' })
-        return res.end(JSON.stringify(tasks))
-    }
-}
-
+  
 ]
